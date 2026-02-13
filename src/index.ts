@@ -50,19 +50,15 @@ const authProvider = new PlatformJWTProvider({
   cacheTtl: 60000 // 60 seconds
 });
 
-// Create token resolver
-// Option 1: Use shared Brave API key from environment (simple)
-// Option 2: Use platform API to get per-user keys (requires platform integration)
-const tokenResolver = new SimpleTokenResolver({
-  tokenEnvVar: 'BRAVE_API_KEY'  // Shared key for all users
-});
-
 // Wrap server with authentication
 const wrappedServer = wrapServer({
-  serverFactory: (braveApiKey: string, userId: string) => {
+  serverFactory: (_accessToken: string, userId: string) => {
     console.log(`[Factory] Creating Brave Search server for user: ${userId}`);
     
-    // Create server with Brave API key (shared or per-user)
+    // Use shared BRAVE_API_KEY from environment for all users
+    const braveApiKey = config.braveApiKey!;
+    
+    // Create server with shared Brave API key
     return createBraveSearchServer({
       config: {
         braveApiKey: braveApiKey,
@@ -72,8 +68,7 @@ const wrappedServer = wrapServer({
     });
   },
   authProvider,
-  tokenResolver,
-  resourceType: 'brave-search',
+  // No tokenResolver or resourceType - we use shared key from environment
   transport: {
     type: 'sse',
     port: config.server.port,

@@ -1,0 +1,48 @@
+{
+  "name": "@prmichaelsen/brave-search-mcp-wrapper",
+  "version": "0.1.0",
+  "description": "Multi-tenant Brave Search MCP server with Platform JWT authentication",
+  "type": "module",
+  "main": "dist/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/prmichaelsen/brave-search-mcp-wrapper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/prmichaelsen/brave-search-mcp-wrapper/issues"
+  },
+  "homepage": "https://github.com/prmichaelsen/brave-search-mcp-wrapper#readme",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "script": "tsx",
+    "script:upload-secrets": "tsx scripts/upload-secrets.ts"
+  },
+  "keywords": [
+    "mcp",
+    "brave-search",
+    "multi-tenant",
+    "authentication",
+    "jwt"
+  ],
+  "author": "Patrick Michaelsen",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@brave/brave-search-mcp-server": "^2.0.72",
+    "@prmichaelsen/mcp-auth": "^7.0.0",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.7.0",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

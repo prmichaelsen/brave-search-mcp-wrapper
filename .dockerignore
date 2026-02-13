@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+.env
+.env.local
+dist
+*.tsbuildinfo
+.git
+.gitignore
+README.md
+.vscode
+.idea
+agent

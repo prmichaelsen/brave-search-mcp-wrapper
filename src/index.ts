@@ -7,18 +7,19 @@
  */
 
 import { wrapServer, SimpleTokenResolver } from '@prmichaelsen/mcp-auth';
-import createBraveSearchServer from '@brave/brave-search-mcp-server';
+import createBraveSearchServer from '@brave/brave-search-mcp-server/dist/server.js';
 import { PlatformJWTProvider } from './auth/platform-jwt-provider.js';
 
 // Configuration
 const config = {
   platform: {
-    url: process.env.PLATFORM_URL!,
+    url: process.env.PLATFORM_URL,
     serviceToken: process.env.PLATFORM_SERVICE_TOKEN!
   },
   server: {
     port: parseInt(process.env.PORT || '8080')
-  }
+  },
+  braveApiKey: process.env.BRAVE_API_KEY
 };
 
 // Validate required configuration
@@ -28,10 +29,17 @@ if (!config.platform.serviceToken) {
   process.exit(1);
 }
 
-if (!config.platform.url) {
-  console.error('Error: PLATFORM_URL environment variable is required');
+// Validate API key configuration
+if (!config.braveApiKey && !config.platform.url) {
+  console.error('Error: Either BRAVE_API_KEY or PLATFORM_URL must be configured');
+  console.error('- BRAVE_API_KEY: Use a shared API key for all users (simple)');
+  console.error('- PLATFORM_URL: Use per-user API keys from platform API (advanced)');
   process.exit(1);
 }
+
+console.log('🔧 Configuration:');
+console.log(`  - API Key Mode: ${config.braveApiKey ? 'Shared' : 'Per-User (Platform API)'}`);
+console.log(`  - Port: ${config.server.port}`);
 
 // Create auth provider
 const authProvider = new PlatformJWTProvider({

@@ -18,3 +18,7 @@ declare module '@brave/brave-search-mcp-server' {
   
   export const configSchema: any;
 }
+
+declare module '@brave/brave-search-mcp-server/dist/server.js' {
+  export { default } from '@brave/brave-search-mcp-server';
+}

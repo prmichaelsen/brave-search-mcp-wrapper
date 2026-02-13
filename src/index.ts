@@ -68,7 +68,8 @@ const wrappedServer = wrapServer({
     });
   },
   authProvider,
-  // No tokenResolver or resourceType - we use shared key from environment
+  resourceType: 'brave-search',
+  // No tokenResolver for static servers - we use shared key from environment
   transport: {
     type: 'sse',
     port: config.server.port,

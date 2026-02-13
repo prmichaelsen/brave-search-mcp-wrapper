@@ -6,7 +6,7 @@
  * This server wraps @brave/brave-search-mcp-server with authentication and multi-tenancy support.
  */
 
-import { wrapServer } from '@prmichaelsen/mcp-auth';
+import { wrapServer, SimpleTokenResolver } from '@prmichaelsen/mcp-auth';
 import createBraveSearchServer from '@brave/brave-search-mcp-server';
 import { PlatformJWTProvider } from './auth/platform-jwt-provider.js';
 
@@ -42,12 +42,19 @@ const authProvider = new PlatformJWTProvider({
   cacheTtl: 60000 // 60 seconds
 });
 
+// Create token resolver
+// Option 1: Use shared Brave API key from environment (simple)
+// Option 2: Use platform API to get per-user keys (requires platform integration)
+const tokenResolver = new SimpleTokenResolver({
+  tokenEnvVar: 'BRAVE_API_KEY'  // Shared key for all users
+});
+
 // Wrap server with authentication
 const wrappedServer = wrapServer({
   serverFactory: (braveApiKey: string, userId: string) => {
     console.log(`[Factory] Creating Brave Search server for user: ${userId}`);
     
-    // Create server with user's Brave API key
+    // Create server with Brave API key (shared or per-user)
     return createBraveSearchServer({
       config: {
         braveApiKey: braveApiKey,
@@ -57,6 +64,7 @@ const wrappedServer = wrapServer({
     });
   },
   authProvider,
+  tokenResolver,
   resourceType: 'brave-search',
   transport: {
     type: 'sse',

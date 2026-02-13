@@ -53,7 +53,7 @@ const SKIP_VARS = new Set([
   'NODE_ENV',
   'PORT',
   'LOG_LEVEL',
-  'PLATFORM_URL',  // Public URL, not a secret
+  'PLATFORM_URL',  // Public URL, not a secret (only needed for per-user keys)
   'CORS_ORIGIN'    // Public URL, not a secret
 ]);
 

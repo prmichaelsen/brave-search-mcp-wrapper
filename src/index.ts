@@ -71,7 +71,7 @@ const wrappedServer = wrapServer({
   resourceType: 'brave-search',
   // No tokenResolver for static servers - we use shared key from environment
   transport: {
-    type: 'sse',
+    type: 'http',
     port: config.server.port,
     host: '0.0.0.0',
     basePath: '/mcp',

@@ -64,6 +64,7 @@ const wrappedServer = wrapServer({
         braveApiKey: braveApiKey,
         loggingLevel: 'info',
         stateless: true, // Important for multi-tenant deployments
+        disabledTools: ['brave_search_images'], // Disable image search due to schema issues
       }
     });
   },

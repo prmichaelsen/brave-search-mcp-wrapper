@@ -6,9 +6,10 @@
  * This server wraps @brave/brave-search-mcp-server with authentication and multi-tenancy support.
  */
 
-import { wrapServer, SimpleTokenResolver, ApiTokenResolver } from '@prmichaelsen/mcp-auth';
+import { wrapServer } from '@prmichaelsen/mcp-auth';
 import createBraveSearchServer from '@brave/brave-search-mcp-server/dist/server.js';
 import { PlatformJWTProvider } from './auth/platform-jwt-provider.js';
+import { PlatformTokenResolver } from './auth/platform-token-resolver.js';
 
 // Configuration
 const config = {
@@ -29,16 +30,14 @@ if (!config.platform.serviceToken) {
   process.exit(1);
 }
 
-// Validate API key configuration
-if (!config.braveApiKey && !config.platform.url) {
-  console.error('Error: Either BRAVE_API_KEY or PLATFORM_URL must be configured');
-  console.error('- BRAVE_API_KEY: Use a shared API key for all users (simple)');
-  console.error('- PLATFORM_URL: Use per-user API keys from platform API (advanced)');
+if (!config.platform.url) {
+  console.error('Error: PLATFORM_URL environment variable is required');
   process.exit(1);
 }
 
 console.log('🔧 Configuration:');
-console.log(`  - API Key Mode: ${config.braveApiKey ? 'Shared' : 'Per-User (Platform API)'}`);
+console.log(`  - API Key Mode: Platform API (Static Credentials)`);
+console.log(`  - Platform URL: ${config.platform.url}`);
 console.log(`  - Port: ${config.server.port}`);
 
 // Create auth provider
@@ -50,22 +49,21 @@ const authProvider = new PlatformJWTProvider({
   cacheTtl: 60000 // 60 seconds
 });
 
-// Create token resolver for fetching per-user API keys from platform
-// If PLATFORM_URL is configured, use platform API; otherwise use shared key
-const tokenResolver = config.platform.url
-  ? new ApiTokenResolver({
-      apiUrl: `${config.platform.url}/api/credentials`,
-      resourceType: 'brave-search'
-    })
-  : new SimpleTokenResolver(config.braveApiKey!);
+// Create token resolver
+const tokenResolver = new PlatformTokenResolver({
+  platformUrl: config.platform.url,
+  authProvider: authProvider,
+  cacheTokens: true,
+  cacheTtl: 300000 // 5 minutes
+});
 
 // Wrap server with authentication
 const wrappedServer = wrapServer({
   serverFactory: (accessToken: string, userId: string) => {
     console.log(`[Factory] Creating Brave Search server for user: ${userId}`);
     
-    // Use per-user API key from tokenResolver, or fall back to shared key
-    const braveApiKey = accessToken || config.braveApiKey!;
+    // Use API key from platform (static credentials)
+    const braveApiKey = accessToken;
     console.log(`[Factory] Using API key: ${braveApiKey.substring(0, 10)}...`);
     
     // Create server with Brave API key
@@ -78,10 +76,10 @@ const wrappedServer = wrapServer({
     });
   },
   authProvider,
-  tokenResolver: tokenResolver ?? undefined,
+  tokenResolver,
   resourceType: 'brave-search',
   transport: {
-    type: 'http',
+    type: 'sse',
     port: config.server.port,
     host: '0.0.0.0',
     basePath: '/mcp',

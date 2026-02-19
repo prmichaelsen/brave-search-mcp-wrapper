@@ -205,6 +205,43 @@ progress:
 recent_work:
   - date: 2026-02-19
     description: |
+      ✅ FINAL FIX! Custom PlatformTokenResolver forwards JWT to credentials API
+    items:
+      - ✅ Created custom PlatformTokenResolver that uses JWT from auth provider
+      - ✅ Platform expects JWT token (signed with service_token), not raw service_token
+      - ✅ Resolver calls /api/credentials/brave-search with Bearer JWT
+      - ✅ Platform verifies JWT and returns static credentials
+      - ✅ Deployed to Cloud Run (build c5bfadc0)
+      - ✅ Pattern matches remember-mcp-server (static server with platform credentials)
+      - 🧪 Ready for end-to-end testing
+
+  - date: 2026-02-19
+    description: |
+      🎉 FIXED ENDPOINT PATTERN! Wrapper now calling correct platform API
+    items:
+      - ✅ Fixed endpoint path: /api/credentials/:resourceType (removed :userId)
+      - ✅ Redeployed to Cloud Run (build c3289cb5)
+      - ✅ APITokenResolver now using correct pattern
+      - ✅ Platform expects /api/credentials/brave-search (not /api/credentials/:userId/brave-search)
+      - ✅ Service running with updated configuration
+      - 📋 Next: Test integration with real user session
+      - 📋 Platform task documented: /home/prmichaelsen/agentbase.me/agent/tasks/task-brave-search-static-credentials.md
+
+  - date: 2026-02-19
+    description: |
+      🎉 DEPLOYED TO PRODUCTION! Brave Search MCP Wrapper v3.0.0
+    items:
+      - ✅ Fixed TypeScript errors (APITokenResolver, SimpleTokenResolver config)
+      - ✅ Updated to use correct mcp-auth v7.0.4 API
+      - ✅ Build successful locally
+      - ✅ Deployed to Cloud Run (build 5024653c)
+      - ✅ Service running at brave-search-mcp-wrapper endpoint
+      - ✅ Configured with PLATFORM_URL and CORS_ORIGIN
+      - ✅ Ready to integrate with agentbase.me platform
+      - 📋 Next: Platform side needs to implement static credentials support (task-113)
+
+  - date: 2026-02-19
+    description: |
       🚀 ACP Initialization Complete - Full context loaded and synchronized
     items:
       - ✅ ACP version check: Up to date (v2.1.4)

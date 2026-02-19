@@ -6,7 +6,7 @@
  * This server wraps @brave/brave-search-mcp-server with authentication and multi-tenancy support.
  */
 
-import { wrapServer, SimpleTokenResolver } from '@prmichaelsen/mcp-auth';
+import { wrapServer, SimpleTokenResolver, ApiTokenResolver } from '@prmichaelsen/mcp-auth';
 import createBraveSearchServer from '@brave/brave-search-mcp-server/dist/server.js';
 import { PlatformJWTProvider } from './auth/platform-jwt-provider.js';
 
@@ -50,27 +50,36 @@ const authProvider = new PlatformJWTProvider({
   cacheTtl: 60000 // 60 seconds
 });
 
+// Create token resolver for fetching per-user API keys from platform
+// If PLATFORM_URL is configured, use platform API; otherwise use shared key
+const tokenResolver = config.platform.url
+  ? new ApiTokenResolver({
+      apiUrl: `${config.platform.url}/api/credentials`,
+      resourceType: 'brave-search'
+    })
+  : new SimpleTokenResolver(config.braveApiKey!);
+
 // Wrap server with authentication
 const wrappedServer = wrapServer({
-  serverFactory: (_accessToken: string, userId: string) => {
+  serverFactory: (accessToken: string, userId: string) => {
     console.log(`[Factory] Creating Brave Search server for user: ${userId}`);
     
-    // Use shared BRAVE_API_KEY from environment for all users
-    const braveApiKey = config.braveApiKey!;
+    // Use per-user API key from tokenResolver, or fall back to shared key
+    const braveApiKey = accessToken || config.braveApiKey!;
+    console.log(`[Factory] Using API key: ${braveApiKey.substring(0, 10)}...`);
     
-    // Create server with shared Brave API key
+    // Create server with Brave API key
     return createBraveSearchServer({
       config: {
         braveApiKey: braveApiKey,
         loggingLevel: 'info',
         stateless: true, // Important for multi-tenant deployments
-        disabledTools: ['brave_search_images'], // Disable image search due to schema issues
       }
     });
   },
   authProvider,
+  tokenResolver: tokenResolver ?? undefined,
   resourceType: 'brave-search',
-  // No tokenResolver for static servers - we use shared key from environment
   transport: {
     type: 'http',
     port: config.server.port,

@@ -2,7 +2,7 @@
 
 /**
  * Brave Search MCP Wrapper - Multi-tenant wrapper with Platform JWT auth
- * 
+ *
  * This server wraps @brave/brave-search-mcp-server with authentication and multi-tenancy support.
  */
 
@@ -10,6 +10,8 @@ import { wrapServer } from '@prmichaelsen/mcp-auth';
 import createBraveSearchServer from '@brave/brave-search-mcp-server/dist/server.js';
 import { PlatformJWTProvider } from './auth/platform-jwt-provider.js';
 import { PlatformTokenResolver } from './auth/platform-token-resolver.js';
+import { transformTools } from './utils/schema-transformer.js';
+import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 
 // Configuration
 const config = {
@@ -66,14 +68,33 @@ const wrappedServer = wrapServer({
     const braveApiKey = accessToken;
     console.log(`[Factory] Using API key: ${braveApiKey.substring(0, 10)}...`);
     
-    // Create server with Brave API key
-    return createBraveSearchServer({
+    // Create base server with Brave API key
+    const baseServer: any = createBraveSearchServer({
       config: {
         braveApiKey: braveApiKey,
         loggingLevel: 'info',
         stateless: true, // Important for multi-tenant deployments
       }
     });
+    
+    // Wrap the listTools method to transform schemas
+    const originalListTools = baseServer.listTools?.bind(baseServer);
+    if (originalListTools) {
+      baseServer.listTools = async function() {
+        console.log(`[Factory] Listing tools for user: ${userId}`);
+        const result = await originalListTools();
+        
+        // Transform tools to remove outputSchema (prevents validation errors)
+        if (result?.tools) {
+          console.log(`[Factory] Transforming ${result.tools.length} tools`);
+          result.tools = transformTools(result.tools);
+        }
+        
+        return result;
+      };
+    }
+    
+    return baseServer;
   },
   authProvider,
   tokenResolver,

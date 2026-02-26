@@ -8,12 +8,12 @@ set -e
 # Source common utilities
 SCRIPT_DIR="$(dirname "$0")"
 . "${SCRIPT_DIR}/acp.common.sh"
+. "${SCRIPT_DIR}/acp.yaml-parser.sh"
 
 # Initialize colors
 init_colors
 
 # Parse arguments
-SKIP_CONFIRM=false
 REPO_URL=""
 INSTALL_PATTERNS=false
 INSTALL_COMMANDS=false
@@ -22,9 +22,24 @@ PATTERN_FILES=()
 COMMAND_FILES=()
 DESIGN_FILES=()
 LIST_ONLY=false
+GLOBAL_INSTALL=false
+INSTALL_EXPERIMENTAL=false
+SKIP_CONFIRM=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --repo)
+            REPO_URL="$2"
+            shift 2
+            ;;
+        --global)
+            GLOBAL_INSTALL=true
+            shift
+            ;;
+        --experimental)
+            INSTALL_EXPERIMENTAL=true
+            shift
+            ;;
         -y|--yes)
             SKIP_CONFIRM=true
             shift
@@ -32,8 +47,8 @@ while [[ $# -gt 0 ]]; do
         --patterns)
             INSTALL_PATTERNS=true
             shift
-            # Collect pattern file names until next flag or end
-            while [[ $# -gt 0 && ! $1 =~ ^-- && ! $1 =~ ^-[a-z] ]]; do
+            # Collect pattern file names until next flag
+            while [[ $# -gt 0 && ! $1 =~ ^-- ]]; do
                 PATTERN_FILES+=("$1")
                 shift
             done
@@ -41,8 +56,8 @@ while [[ $# -gt 0 ]]; do
         --commands)
             INSTALL_COMMANDS=true
             shift
-            # Collect command file names until next flag or end
-            while [[ $# -gt 0 && ! $1 =~ ^-- && ! $1 =~ ^-[a-z] ]]; do
+            # Collect command file names until next flag
+            while [[ $# -gt 0 && ! $1 =~ ^-- ]]; do
                 COMMAND_FILES+=("$1")
                 shift
             done
@@ -50,8 +65,8 @@ while [[ $# -gt 0 ]]; do
         --designs)
             INSTALL_DESIGNS=true
             shift
-            # Collect design file names until next flag or end
-            while [[ $# -gt 0 && ! $1 =~ ^-- && ! $1 =~ ^-[a-z] ]]; do
+            # Collect design file names until next flag
+            while [[ $# -gt 0 && ! $1 =~ ^-- ]]; do
                 DESIGN_FILES+=("$1")
                 shift
             done
@@ -61,8 +76,9 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            REPO_URL="$1"
-            shift
+            echo "${RED}Error: Unknown option: $1${NC}"
+            echo "Use --repo to specify repository URL"
+            exit 1
             ;;
     esac
 done
@@ -70,10 +86,13 @@ done
 # Check if repository URL provided
 if [ -z "$REPO_URL" ]; then
     echo "${RED}Error: Repository URL required${NC}"
-    echo "Usage: $0 [options] <repository-url>"
+    echo "Usage: $0 --repo <repository-url> [options]"
+    echo ""
+    echo "Required:"
+    echo "  --repo <url>           Repository URL to install from"
     echo ""
     echo "Options:"
-    echo "  -y, --yes              Skip confirmation prompts"
+    echo "  --global               Install to ~/.acp/packages/ instead of ./agent/"
     echo "  --patterns [files...]  Install patterns (all if no files specified)"
     echo "  --commands [files...]  Install commands (all if no files specified)"
     echo "  --designs [files...]   Install designs (all if no files specified)"
@@ -100,10 +119,10 @@ echo ""
 echo "Repository: $REPO_URL"
 echo ""
 
-# Validate URL format
-if [[ ! "$REPO_URL" =~ ^https?:// ]]; then
+# Validate URL format (allow local paths for testing)
+if [[ ! "$REPO_URL" =~ ^https?:// ]] && [[ ! "$REPO_URL" =~ ^file:// ]] && [[ ! -d "$REPO_URL" ]]; then
     echo "${RED}Error: Invalid repository URL${NC}"
-    echo "URL must start with http:// or https://"
+    echo "URL must start with http://, https://, file://, or be a local directory path"
     exit 1
 fi
 
@@ -128,8 +147,31 @@ if [ ! -d "$TEMP_DIR/agent" ]; then
     exit 1
 fi
 
-# Initialize manifest
-init_manifest
+# Determine installation directory and manifest based on --global flag
+if [ "$GLOBAL_INSTALL" = true ]; then
+    # Global installation - install directly into ~/.acp/agent/
+    INSTALL_BASE_DIR="$HOME/.acp/agent"
+    MANIFEST_FILE="$HOME/.acp/agent/manifest.yaml"
+    
+    echo "${BLUE}Installing globally to ~/.acp/agent/${NC}"
+    echo ""
+    
+    # Initialize global ACP infrastructure (auto-initialization)
+    init_global_acp || {
+        echo "${RED}Error: Failed to initialize global infrastructure${NC}" >&2
+        exit 1
+    }
+else
+    # Local installation (existing behavior)
+    INSTALL_BASE_DIR="./agent"
+    MANIFEST_FILE="./agent/manifest.yaml"
+    
+    echo "${BLUE}Installing locally to ./agent/${NC}"
+    echo ""
+    
+    # Initialize local manifest
+    init_manifest
+fi
 
 # Parse package metadata
 parse_package_metadata "$TEMP_DIR"
@@ -204,6 +246,7 @@ INSTALL_DIRS=()
 [ "$INSTALL_PATTERNS" = true ] && INSTALL_DIRS+=("patterns")
 [ "$INSTALL_COMMANDS" = true ] && INSTALL_DIRS+=("commands")
 [ "$INSTALL_DESIGNS" = true ] && INSTALL_DIRS+=("design")
+[ "$INSTALL_COMMANDS" = true ] && INSTALL_DIRS+=("scripts")  # Scripts installed with commands
 
 INSTALLED_COUNT=0
 SKIPPED_COUNT=0
@@ -231,6 +274,9 @@ for dir in "${INSTALL_DIRS[@]}"; do
         design)
             FILE_LIST=DESIGN_FILES
             ;;
+        scripts)
+            FILE_LIST=COMMAND_FILES  # Scripts use command files list (empty array if no specific files)
+            ;;
     esac
     
     # If specific files requested, use those; otherwise find all
@@ -238,8 +284,12 @@ for dir in "${INSTALL_DIRS[@]}"; do
         # Selective file installation
         FILES_TO_PROCESS=()
         for file_name in "${FILE_LIST[@]}"; do
-            # Add .md extension if not present
-            [[ "$file_name" != *.md ]] && file_name="${file_name}.md"
+            # Add appropriate extension if not present
+            if [ "$dir" = "scripts" ]; then
+                [[ "$file_name" != *.sh ]] && file_name="${file_name}.sh"
+            else
+                [[ "$file_name" != *.md ]] && file_name="${file_name}.md"
+            fi
             
             file_path="$SOURCE_DIR/$file_name"
             if [ -f "$file_path" ]; then
@@ -252,9 +302,17 @@ for dir in "${INSTALL_DIRS[@]}"; do
     else
         # Install all files from directory
         FILES_TO_PROCESS=()
-        while IFS= read -r file; do
-            [ -n "$file" ] && FILES_TO_PROCESS+=("$file")
-        done < <(find "$SOURCE_DIR" -maxdepth 1 -name "*.md" ! -name "*.template.md" -type f)
+        if [ "$dir" = "scripts" ]; then
+            # For scripts, find .sh files
+            while IFS= read -r file; do
+                [ -n "$file" ] && FILES_TO_PROCESS+=("$file")
+            done < <(find "$SOURCE_DIR" -maxdepth 1 -name "*.sh" ! -name "*.template.sh" -type f)
+        else
+            # For other types, find .md files
+            while IFS= read -r file; do
+                [ -n "$file" ] && FILES_TO_PROCESS+=("$file")
+            done < <(find "$SOURCE_DIR" -maxdepth 1 -name "*.md" ! -name "*.template.md" -type f)
+        fi
     fi
     
     if [ ${#FILES_TO_PROCESS[@]} -eq 0 ]; then
@@ -284,8 +342,23 @@ for dir in "${INSTALL_DIRS[@]}"; do
             fi
         fi
         
+        # Special validation for scripts
+        if [ "$dir" = "scripts" ]; then
+            # Check for reserved 'acp' namespace
+            if [[ "$filename" =~ ^acp\. ]]; then
+                echo "  ${RED}✗${NC} $filename (reserved namespace 'acp')"
+                SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+                continue
+            fi
+            
+            # Check for shebang
+            if ! head -n1 "$file" | grep -q "^#!/"; then
+                echo "  ${YELLOW}⚠${NC}  $filename (missing shebang)"
+            fi
+        fi
+        
         # Check for conflicts
-        if [ -f "agent/$dir/$filename" ]; then
+        if [ -f "$INSTALL_BASE_DIR/$dir/$filename" ]; then
             echo "  ${YELLOW}⚠${NC}  $filename (will overwrite existing)"
         else
             echo "  ${GREEN}✓${NC} $filename"
@@ -328,10 +401,41 @@ fi
 echo ""
 echo "Installing files..."
 
+# Parse package.yaml for experimental checking
+if [ -f "$TEMP_DIR/package.yaml" ]; then
+    yaml_parse "$TEMP_DIR/package.yaml"
+fi
+
+# Check if file should be installed based on experimental status
+should_install_file() {
+    local filename="$1"
+    local file_type="$2"  # commands, patterns, designs, scripts
+    
+    # If no package.yaml, install everything
+    if [ ! -f "$TEMP_DIR/package.yaml" ]; then
+        return 0
+    fi
+    
+    # Check if file is marked experimental in package.yaml
+    local is_experimental=$(grep -A 1000 "^  ${file_type}:" "$TEMP_DIR/package.yaml" 2>/dev/null | grep -A 2 "name: ${filename}" | grep "^ *experimental: true" | grep -v "^[[:space:]]*#" | head -1)
+    
+    if [ -n "$is_experimental" ]; then
+        if [ "$INSTALL_EXPERIMENTAL" = true ]; then
+            echo "  ${YELLOW}⚠${NC}  Installing experimental: ${filename}"
+            return 0  # Install it
+        else
+            echo "  ${DIM}⊘${NC}  Skipping experimental: ${filename} (use --experimental to install)"
+            return 1  # Skip it
+        fi
+    fi
+    
+    return 0  # Install non-experimental files
+}
+
 # Add package to manifest
 add_package_to_manifest "$PACKAGE_NAME" "$REPO_URL" "$PACKAGE_VERSION" "$COMMIT_HASH"
 
-# Install files from each directory
+# Install files (same logic for both global and local)
 for dir in "${INSTALL_DIRS[@]}"; do
     SOURCE_DIR="$TEMP_DIR/agent/$dir"
     
@@ -340,8 +444,8 @@ for dir in "${INSTALL_DIRS[@]}"; do
     fi
     
     # Create target directory
-    mkdir -p "agent/$dir"
-    
+    mkdir -p "$INSTALL_BASE_DIR/$dir"
+
     # Determine which files to install based on selective flags
     declare -n FILE_LIST
     case "$dir" in
@@ -354,6 +458,9 @@ for dir in "${INSTALL_DIRS[@]}"; do
         design)
             FILE_LIST=DESIGN_FILES
             ;;
+        scripts)
+            FILE_LIST=COMMAND_FILES  # Scripts use command files list
+            ;;
     esac
     
     # If specific files requested, use those; otherwise find all
@@ -361,8 +468,12 @@ for dir in "${INSTALL_DIRS[@]}"; do
         # Selective file installation
         FILES_TO_INSTALL=()
         for file_name in "${FILE_LIST[@]}"; do
-            # Add .md extension if not present
-            [[ "$file_name" != *.md ]] && file_name="${file_name}.md"
+            # Add appropriate extension if not present
+            if [ "$dir" = "scripts" ]; then
+                [[ "$file_name" != *.sh ]] && file_name="${file_name}.sh"
+            else
+                [[ "$file_name" != *.md ]] && file_name="${file_name}.md"
+            fi
             
             file_path="$SOURCE_DIR/$file_name"
             if [ -f "$file_path" ]; then
@@ -372,9 +483,15 @@ for dir in "${INSTALL_DIRS[@]}"; do
     else
         # Install all files from directory
         FILES_TO_INSTALL=()
-        while IFS= read -r file; do
-            [ -n "$file" ] && FILES_TO_INSTALL+=("$file")
-        done < <(find "$SOURCE_DIR" -maxdepth 1 -name "*.md" ! -name "*.template.md" -type f)
+        if [ "$dir" = "scripts" ]; then
+            while IFS= read -r file; do
+                [ -n "$file" ] && FILES_TO_INSTALL+=("$file")
+            done < <(find "$SOURCE_DIR" -maxdepth 1 -name "*.sh" ! -name "*.template.sh" -type f)
+        else
+            while IFS= read -r file; do
+                [ -n "$file" ] && FILES_TO_INSTALL+=("$file")
+            done < <(find "$SOURCE_DIR" -maxdepth 1 -name "*.md" ! -name "*.template.md" -type f)
+        fi
     fi
     
     for file in "${FILES_TO_INSTALL[@]}"; do
@@ -387,30 +504,70 @@ for dir in "${INSTALL_DIRS[@]}"; do
             fi
         fi
         
+        # Skip invalid scripts
+        if [ "$dir" = "scripts" ]; then
+            if [[ "$filename" =~ ^acp\. ]]; then
+                continue
+            fi
+        fi
+        
+        # Check if should install based on experimental status
+        if ! should_install_file "$filename" "$dir"; then
+            continue
+        fi
+        
         # Copy file
-        cp "$file" "agent/$dir/$filename"
+        cp "$file" "$INSTALL_BASE_DIR/$dir/$filename"
+        
+        # Make scripts executable
+        if [ "$dir" = "scripts" ]; then
+            chmod +x "$INSTALL_BASE_DIR/$dir/$filename"
+        fi
         
         # Get file version from package.yaml
         FILE_VERSION=$(get_file_version "$TEMP_DIR/package.yaml" "$dir" "$filename")
         
-        # Add file to manifest
-        add_file_to_manifest "$PACKAGE_NAME" "$dir" "$filename" "$FILE_VERSION" "agent/$dir/$filename"
+        # Add file to manifest (pass package.yaml path for experimental tracking)
+        add_file_to_manifest "$PACKAGE_NAME" "$dir" "$filename" "$FILE_VERSION" "$INSTALL_BASE_DIR/$dir/$filename" "$TEMP_DIR/package.yaml"
         
-        echo "  ${GREEN}✓${NC} Installed $dir/$filename (v$FILE_VERSION)"
+        if [ "$dir" = "scripts" ]; then
+            echo "  ${GREEN}✓${NC} Installed $dir/$filename (v$FILE_VERSION) [executable]"
+        else
+            echo "  ${GREEN}✓${NC} Installed $dir/$filename (v$FILE_VERSION)"
+        fi
     done
     
     unset -n FILE_LIST
+    echo ""
 done
 
 echo ""
-echo "${GREEN}✅ Installation complete!${NC}"
-echo ""
-echo "Installed $INSTALLED_COUNT file(s) from:"
-echo "  $REPO_URL"
-echo ""
-echo "Package: $PACKAGE_NAME ($PACKAGE_VERSION)"
-echo "Manifest: agent/manifest.yaml updated"
-echo ""
+
+# Success message based on installation mode
+if [ "$GLOBAL_INSTALL" = true ]; then
+    echo "${GREEN}✅ Package installed globally!${NC}"
+    echo ""
+    echo "Location: $INSTALL_BASE_DIR"
+    echo "Manifest: $MANIFEST_FILE"
+    echo ""
+    echo "Agents can now discover this package by reading ~/.acp/agent/manifest.yaml"
+    echo ""
+    echo "To use in any project:"
+    echo "  1. Run @acp.init to discover global packages"
+    echo "  2. Reference commands via @namespace.command"
+    echo ""
+    echo "To list global packages: @acp.package-list --global"
+    echo ""
+else
+    echo "${GREEN}✅ Installation complete!${NC}"
+    echo ""
+    echo "Installed $INSTALLED_COUNT file(s) from:"
+    echo "  $REPO_URL"
+    echo ""
+    echo "Package: $PACKAGE_NAME ($PACKAGE_VERSION)"
+    echo "Manifest: agent/manifest.yaml updated"
+    echo ""
+fi
 
 # List installed commands
 if [ -d "$TEMP_DIR/agent/commands" ]; then

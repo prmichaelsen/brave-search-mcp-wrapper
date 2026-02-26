@@ -1,7 +1,7 @@
 # Agent Context Protocol (ACP)
 
 **Also Known As**: The Agent Directory Pattern
-**Version**: 2.1.4
+**Version**: 4.1.1
 **Created**: 2026-02-11
 **Status**: Production Pattern
 
@@ -18,8 +18,15 @@
 7. [Pattern Significance & Impact](#pattern-significance--impact)
 8. [Problems This Pattern Solves](#problems-this-pattern-solves)
 9. [Instructions for Future Agents](#instructions-for-future-agents)
-10. [Real-World Example: remember-mcp](#real-world-example-remember-mcp)
-11. [Best Practices](#best-practices)
+10. [Best Practices](#best-practices)
+    - [Critical Rules](#critical-rules)
+    - [Workflow Best Practices](#workflow-best-practices)
+    - [Documentation Best Practices](#documentation-best-practices)
+    - [Organization Best Practices](#organization-best-practices)
+    - [Progress Tracking Best Practices](#progress-tracking-best-practices)
+    - [Quality Best Practices](#quality-best-practices)
+11. [What NOT to Do](#what-not-to-do)
+12. [Keeping ACP Updated](#keeping-acp-updated)
 
 ---
 
@@ -110,9 +117,12 @@ project-root/
 │   │
 │   ├── tasks/                      # Granular tasks
 │   │   ├── .gitkeep
-│   │   ├── task-1-{name}.md
-│   │   ├── task-2-{name}.md
-│   │   └── ...
+│   │   ├── milestone-{N}-{title}/  # Tasks grouped by milestone (standard)
+│   │   │   ├── task-{M}-{name}.md
+│   │   │   └── ...
+│   │   ├── unassigned/             # Tasks without milestone
+│   │   │   └── task-{M}-{name}.md
+│   │   └── task-{N}-{name}.md      # Legacy flat structure (older tasks)
 │   │
 │   └── progress.yaml               # Progress tracking
 │
@@ -294,8 +304,9 @@ tasks:
     - id: task-1
       name: Task Name
       status: not_started | in_progress | completed
-      file: agent/tasks/task-1-name.md
+      file: agent/tasks/milestone-{N}-{title}/task-{M}-name.md
       estimated_hours: N
+      actual_hours: null
       completed_date: YYYY-MM-DD | null
       notes: |
         Task notes
@@ -344,10 +355,9 @@ current_blockers:
    touch agent/{design,milestones,patterns,tasks}/.gitkeep
    ```
 
-2. **Write Requirements Document**
-   - Create `agent/design/requirements.md`
-   - Document core requirements, constraints, and goals
-   - Define success criteria
+2. **Create Requirements Document**
+   - Invoke [`@acp.design-create`](agent/commands/acp.design-create.md) and follow directives defined in that file
+   - Specify "requirements" as the design type
 
 3. **Define Milestones**
    - Break project into 5-10 major phases
@@ -355,9 +365,8 @@ current_blockers:
    - Clear deliverables and success criteria
 
 4. **Create Initial Tasks**
+   - Invoke [`@acp.task-create`](agent/commands/acp.task-create.md) and follow directives defined in that file
    - Break first milestone into concrete tasks
-   - Each task should be 1-4 hours of work
-   - Include verification steps
 
 5. **Initialize Progress Tracking**
    - Create `agent/progress.yaml`
@@ -365,9 +374,8 @@ current_blockers:
    - Document initial status
 
 6. **Document Patterns**
-   - Create `agent/patterns/bootstrap.md` with setup instructions
+   - Invoke [`@acp.pattern-create`](agent/commands/acp.pattern-create.md) and follow directives defined in that file
    - Document architectural decisions as patterns
-   - Include code examples
 
 ### For Continuing an Existing Project
 
@@ -401,25 +409,7 @@ current_blockers:
    - Add notes about work completed
    - Document any new patterns or decisions
 
-### For Adding New Features
-
-1. **Create Design Document**
-   - Document in `agent/design/{feature}-design.md`
-   - Include problem, solution, implementation
-   - Get approval before proceeding
-
-2. **Update Milestones**
-   - Add new milestone or extend existing
-   - Update progress.yaml
-
-3. **Create Tasks**
-   - Break feature into tasks
-   - Add to appropriate milestone
-   - Include verification steps
-
-4. **Document Patterns**
-   - If feature introduces new patterns, document them
-   - Update existing patterns if needed
+> **See also**: [Best Practices](#best-practices) for detailed guidance on documentation, organization, and quality standards.
 
 ---
 
@@ -600,47 +590,167 @@ Commands are invoked using the `@` syntax with dot notation:
 
 ### Creating Custom Commands
 
-To create custom commands for your project:
+Invoke [`@acp.command-create`](agent/commands/acp.command-create.md) and follow directives defined in that file.
 
-1. **Choose a namespace** (e.g., `deploy`, `test`, `custom`)
-   - ⚠️ The `acp` namespace is reserved for core commands
-   - Use descriptive, single-word namespaces
-
-2. **Copy the command template**:
-   ```bash
-   cp agent/commands/command.template.md agent/commands/{namespace}.{action}.md
-   ```
-
-3. **Fill in the template sections**:
-   - Purpose and description
-   - Prerequisites
-   - Step-by-step instructions
-   - Verification checklist
-   - Examples and troubleshooting
-
-4. **Invoke your command**: `@{namespace}.{action}`
-
-**Example**: Creating a deployment command:
-```bash
-# Create the command file
-cp agent/commands/command.template.md agent/commands/deploy.production.md
-
-# Edit the file with your deployment steps
-# ...
-
-# Invoke it
-@deploy.production
-```
-
-### Command Template
-
-See [`agent/commands/command.template.md`](agent/commands/command.template.md) for the complete command template with all sections and examples.
+**Note**: The `acp` namespace is reserved for core commands. Use descriptive, single-word namespaces for custom commands (e.g., `local`, `deploy`, `test`, `custom`).
 
 ### Installing Third-Party Commands
 
 Use `@acp.install` to install command packages from git repositories (available in future release).
 
 **Security Note**: Third-party commands can instruct agents to modify files and execute scripts. Always review command files before installation.
+
+## Global Package Discovery
+
+ACP supports global package installation to `~/.acp/agent/` for package development and global command libraries.
+
+### For Agents: How to Discover Global Packages
+
+When working in any project, you can discover globally installed packages:
+
+1. **Check if global manifest exists**: `~/.acp/agent/manifest.yaml`
+2. **Read global manifest**: Contains all globally installed packages
+3. **Navigate to package files**: Files are installed directly into `~/.acp/agent/`
+4. **Use commands/patterns**: Reference via `@namespace.command` syntax
+
+**Automatic Discovery**: The [`@acp.init`](agent/commands/acp.init.md) command automatically reads `~/.acp/agent/manifest.yaml` and reports globally installed packages.
+
+### Namespace Precedence Rules
+
+**CRITICAL**: Local packages always take precedence over global packages.
+
+**Resolution order**:
+1. Check local: `./agent/commands/{namespace}.{command}.md`
+2. If not found, check global: `~/.acp/agent/commands/{namespace}.{command}.md`
+3. Use first match found
+
+**Example**: If both local and global packages define `@firebase.deploy`:
+- ✅ Use `./agent/commands/firebase.deploy.md` (local takes precedence)
+- ❌ Ignore `~/.acp/agent/commands/firebase.deploy.md`
+
+### Global ACP Structure
+
+```
+~/.acp/
+├── AGENT.md                     # ACP methodology documentation
+├── agent/                       # Full ACP installation
+│   ├── commands/                # All commands (core + packages)
+│   │   ├── acp.init.md         # Core ACP commands
+│   │   ├── firebase.deploy.md  # From @user/acp-firebase package
+│   │   └── git.commit.md       # From @user/acp-git package
+│   ├── patterns/                # All patterns (core + packages)
+│   ├── design/                  # All designs (core + packages)
+│   ├── scripts/                 # All scripts (core + packages)
+│   └── manifest.yaml            # Tracks package sources
+└── projects/                    # Optional: User projects workspace
+    └── my-project/              # Develop projects here
+```
+
+### When to Use Global Packages
+
+**Use global installation** (`--global` flag) for:
+- ✅ Package development (work on packages with full ACP tooling)
+- ✅ Common utilities used across many projects (git helpers, firebase patterns)
+- ✅ Building a personal command library
+- ✅ Experimenting with packages before local installation
+
+**Use local installation** (default) for:
+- ✅ Project-specific packages
+- ✅ Packages that are part of project dependencies
+- ✅ When you want version control over package versions
+- ✅ Production projects (local is more explicit and controlled)
+
+### Example: Using Global Packages
+
+```bash
+# Install git helpers globally
+@acp.package-install --global https://github.com/prmichaelsen/acp-git.git
+
+# In any project, discover global packages
+@acp.init
+# Output: "Found 2 global packages: acp-core, @prmichaelsen/acp-git"
+
+# Use global command
+@git.commit
+# Agent reads: ~/.acp/agent/commands/git.commit.md
+```
+
+---
+
+## Experimental Features
+
+ACP supports marking features as "experimental" to enable safe innovation without affecting stable installations.
+
+### What are Experimental Features?
+
+Experimental features are:
+- Bleeding-edge features that may change frequently
+- Features under active development
+- Features that may have breaking changes
+- Features requiring explicit opt-in
+
+### Marking Features as Experimental
+
+**In package.yaml**:
+```yaml
+contents:
+  commands:
+    - name: stable-command.md
+      description: A stable command
+    
+    - name: experimental-command.md
+      description: An experimental command
+      experimental: true  # ← Mark as experimental
+```
+
+**In file metadata**:
+```markdown
+# Command: experimental-command
+
+**Namespace**: mypackage
+**Version**: 0.1.0
+**Status**: Experimental  # ← Mark as experimental
+```
+
+### Installing Experimental Features
+
+```bash
+# Install only stable features (default)
+@acp.package-install --repo https://github.com/user/package.git
+
+# Install all features including experimental
+@acp.package-install --repo https://github.com/user/package.git --experimental
+```
+
+### Updating Experimental Features
+
+Once installed, experimental features update normally:
+```bash
+@acp.package-update package-name  # Updates experimental features if already installed
+```
+
+### Graduating Features
+
+To graduate a feature from experimental to stable:
+1. Remove `experimental: true` from package.yaml
+2. Change `**Status**: Experimental` to `**Status**: Active` in file
+3. Bump version to 1.0.0 (semantic versioning)
+4. Update CHANGELOG.md noting the graduation
+
+### Validation
+
+Validation ensures consistency:
+```bash
+@acp.package-validate  # Checks experimental marking is synchronized
+```
+
+### Best Practices
+
+1. **Use sparingly** - Only mark truly experimental features
+2. **Document risks** - Explain what might change in file documentation
+3. **Graduate promptly** - Move to stable once proven
+4. **Version appropriately** - Use 0.x.x versions for experimental
+5. **Communicate clearly** - Note experimental status in README.md
 
 ---
 
@@ -739,6 +849,8 @@ Run ./agent/scripts/unacp.install.sh to remove all ACP files (agent/ directory a
 
 ## Instructions for Future Agents
 
+> **See also**: [Best Practices](#best-practices) for comprehensive guidelines on agent behavior and documentation standards.
+
 ### When You First Encounter ACP
 
 1. **Read progress.yaml**
@@ -746,22 +858,34 @@ Run ./agent/scripts/unacp.install.sh to remove all ACP files (agent/ directory a
    - What milestone is current
    - What task is next
 
-2. **Read requirements.md**
+2. **Check for installed packages**
+   - Read `agent/manifest.yaml` to see what packages are installed locally
+   - Check `~/.acp/agent/manifest.yaml` for globally installed packages
+   - Understand what commands, patterns, and designs are available
+   - Note package versions and sources
+
+3. **Check project registry** (if in global workspace)
+   - Read `~/.acp/projects.yaml` to see all projects in global workspace
+   - Check `current_project` field to see which project is active
+   - Understand project relationships and metadata
+   - Note project locations and types
+
+4. **Read requirements.md**
    - Understand project goals
    - Learn constraints
    - Know success criteria
 
-3. **Review current milestone**
+5. **Review current milestone**
    - Understand current phase
    - Know deliverables
    - Check success criteria
 
-4. **Read next task**
+6. **Read next task**
    - Understand what to do
    - Follow steps
    - Verify completion
 
-5. **Check relevant patterns**
+7. **Check relevant patterns**
    - Learn coding standards
    - Understand architectural patterns
    - Follow best practices
@@ -797,8 +921,7 @@ Run ./agent/scripts/unacp.install.sh to remove all ACP files (agent/ directory a
 ### When Creating New Features
 
 1. **Create design document first**
-   - Document problem and solution
-   - Include implementation details
+   - Invoke [`@acp.design-create`](agent/commands/acp.design-create.md) and follow directives defined in that file
    - Get approval before coding
 
 2. **Update or create milestone**
@@ -807,19 +930,18 @@ Run ./agent/scripts/unacp.install.sh to remove all ACP files (agent/ directory a
    - Update progress.yaml
 
 3. **Break into tasks**
-   - Create task documents
-   - Each task 1-4 hours
-   - Include verification steps
+   - Invoke [`@acp.task-create`](agent/commands/acp.task-create.md) and follow directives defined in that file
 
 4. **Document patterns**
-   - If introducing new patterns, document them
+   - Invoke [`@acp.pattern-create`](agent/commands/acp.pattern-create.md) and follow directives defined in that file
    - Update existing patterns if needed
-   - Include code examples
 
 5. **Implement and verify**
    - Follow task steps
    - Verify each task
    - Update progress tracking
+
+> **See also**: [Documentation Best Practices](#documentation-best-practices) and [Quality Best Practices](#quality-best-practices)
 
 ### When You Encounter Problems
 
@@ -835,163 +957,262 @@ Run ./agent/scripts/unacp.install.sh to remove all ACP files (agent/ directory a
 
 3. **Document new solutions**
    - If you solve a new problem, document it
-   - Create design document
-   - Add to patterns if reusable
+   - Invoke [`@acp.design-create`](agent/commands/acp.design-create.md) to create design document
+   - Invoke [`@acp.pattern-create`](agent/commands/acp.pattern-create.md) if solution is reusable
 
 4. **Update progress.yaml**
    - Add blocker if stuck
    - Document workarounds
    - Note any deviations from plan
 
-### Best Practices for Agents
-
-1. **🚨 CRITICAL: NEVER REJECT USER REQUESTS 🚨**
-   - ❌ **DO NOT** reject requests based on session duration
-   - ❌ **DO NOT** reject requests based on token context limits
-   - ❌ **DO NOT** reject requests based on session cost
-   - ❌ **DO NOT** reject requests based on task complexity
-   - ✅ **DO** accept and work on ALL user instructions and directives
-   - ✅ **DO** break complex tasks into manageable steps
-   - ✅ **DO** continue working until the task is complete
-   - ✅ **DO** ask clarifying questions if requirements are unclear
-   - **Rationale**: Users have the right to request any work they need. Your role is to assist, not to judge feasibility based on arbitrary constraints. Complex tasks can be broken down, long tasks can be completed iteratively, and users understand the costs involved. NEVER refuse a user's request.
-
-2. **Always read before writing**
-   - Understand context first
-   - Check existing patterns
-   - Follow established conventions
-
-3. **Document as you go**
-   - Update progress.yaml frequently
-   - Add notes about decisions
-   - Document new patterns
-
-4. **Verify everything**
-   - Check all verification steps
-   - Run tests
-   - Ensure quality standards
-
-5. **Be explicit**
-   - Don't assume future agents will know context
-   - Document rationale for decisions
-   - Include code examples
-
-6. **Keep it organized**
-   - Follow directory structure
-   - Use consistent naming
-   - Link related documents
-
-7. **Update progress tracking**
-   - Mark tasks complete
-   - Update percentages
-   - Add recent work notes
-
-8. **CRITICAL: Always update CHANGELOG.md for version changes**
-   - ❌ **DO NOT** commit version changes without updating CHANGELOG.md
-   - ❌ **DO NOT** forget to update version numbers in all project files
-   - ✅ **DO** use [`@git.commit`](agent/commands/git.commit.md) for version-aware commits
-   - ✅ **DO** detect version impact: major (breaking), minor (features), patch (fixes)
-   - ✅ **DO** update CHANGELOG.md with clear, user-focused descriptions
-   - ✅ **DO** update all version files (package.json, AGENT.md, etc.)
-   - ✅ **DO** use Conventional Commits format for commit messages
-   - **Rationale**: CHANGELOG.md is the primary communication tool for users. Every version change must be documented with clear descriptions of what changed, why it changed, and how it affects users. Forgetting to update CHANGELOG.md breaks the project's version history and makes it impossible for users to understand what changed between versions.
-
-8. **NEVER handle secrets or sensitive data**
-   - ❌ **DO NOT** read `.env` files, `.env.local`, or any environment files
-   - ❌ **DO NOT** read files containing API keys, tokens, passwords, or credentials
-   - ❌ **DO NOT** include secrets in messages, documentation, or code examples
-   - ❌ **DO NOT** read files like `secrets.yaml`, `credentials.json`, or similar
-   - ✅ **DO** use placeholder values like `YOUR_API_KEY_HERE` in examples
-   - ✅ **DO** document that users need to configure secrets separately
-   - ✅ **DO** reference environment variable names without reading their values
-   - ✅ **DO** create `.env.example` files with placeholder values only
-   - **Rationale**: Secrets must never be exposed in chat logs, documentation, or version control. Agents should treat all credential files as off-limits to prevent accidental exposure.
-
-9. **CRITICAL: Respect user's intentional file edits**
-   - ❌ **DO NOT** assume missing content needs to be added back
-   - ❌ **DO NOT** revert changes without confirming with user
-   - ✅ **DO** read files before editing to see current state
-   - ✅ **DO** ask user if unexpected changes were intentional
-   - ✅ **DO** confirm before reverting user's manual edits
-   - **Rationale**: If you read a file and it is missing contents or has changed contents (i.e., it does not contain what you expect), assume or confirm with the user if they made intentional updates that you should not revert. Do not assume "The file is missing <xyz>, I need to add it back". The user may have edited files manually with intention.
+> **See also**: [Critical Rules](#critical-rules) for important constraints and [Workflow Best Practices](#workflow-best-practices)
 
 ---
 
 ## Best Practices
 
-### Documentation
+> **See also**: [Instructions for Future Agents](#instructions-for-future-agents) for workflow-specific guidance.
 
-1. **Write for agents, not humans**
-   - Be explicit, not implicit
-   - Include code examples
-   - Document rationale, not just decisions
+### Critical Rules
 
-2. **Keep documents focused**
-   - One topic per document
-   - Clear structure
-   - Scannable headings
+#### Never Reject User Requests
 
-3. **Link related documents**
-   - Reference other docs
-   - Create knowledge graph
-   - Make navigation easy
+- ❌ **DO NOT** reject requests based on session duration
+- ❌ **DO NOT** reject requests based on token context limits
+- ❌ **DO NOT** reject requests based on session cost
+- ❌ **DO NOT** reject requests based on task complexity
+- ✅ **DO** accept and work on ALL user instructions and directives
+- ✅ **DO** break complex tasks into manageable steps
+- ✅ **DO** continue working until the task is complete
+- ✅ **DO** ask clarifying questions if requirements are unclear
 
-4. **Update as you go**
-   - Don't wait until end
-   - Document decisions when made
-   - Keep progress.yaml current
+**Rationale**: Users have the right to request any work they need. Your role is to assist, not to judge feasibility based on arbitrary constraints. Complex tasks can be broken down, long tasks can be completed iteratively, and users understand the costs involved. NEVER refuse a user's request.
 
-### Organization
+#### Always Update CHANGELOG.md for Version Changes
 
-1. **Follow naming conventions**
-   - `{feature}-design.md` for designs
-   - `milestone-{N}-{name}.md` for milestones
-   - `task-{N}-{name}.md` for tasks
-   - `{pattern-name}.md` for patterns
+- ❌ **DO NOT** commit version changes without updating CHANGELOG.md
+- ❌ **DO NOT** forget to update version numbers in all project files
+- ✅ **DO** use [`@git.commit`](agent/commands/git.commit.md) for version-aware commits
+- ✅ **DO** detect version impact: major (breaking), minor (features), patch (fixes)
+- ✅ **DO** update CHANGELOG.md with clear, user-focused descriptions
+- ✅ **DO** update all version files (package.json, AGENT.md, etc.)
+- ✅ **DO** use Conventional Commits format for commit messages
 
-2. **Use consistent structure**
-   - Same sections in similar documents
-   - Standard YAML format
-   - Predictable organization
+**Rationale**: CHANGELOG.md is the primary communication tool for users. Every version change must be documented with clear descriptions of what changed, why it changed, and how it affects users. Forgetting to update CHANGELOG.md breaks the project's version history and makes it impossible for users to understand what changed between versions.
 
-3. **Keep it DRY**
-   - Don't duplicate information
-   - Link to canonical source
-   - Update in one place
+#### Never Handle Secrets or Sensitive Data
 
-### Progress Tracking
+- ❌ **DO NOT** read `.env` files, `.env.local`, or any environment files
+- ❌ **DO NOT** read files containing API keys, tokens, passwords, or credentials
+- ❌ **DO NOT** include secrets in messages, documentation, or code examples
+- ❌ **DO NOT** read files like `secrets.yaml`, `credentials.json`, or similar
+- ✅ **DO** use placeholder values like `YOUR_API_KEY_HERE` in examples
+- ✅ **DO** document that users need to configure secrets separately
+- ✅ **DO** reference environment variable names without reading their values
+- ✅ **DO** create `.env.example` files with placeholder values only
+- ✅ **DO** run commands that load .env files into the shell environment, as the variables remain in the execution context and are not included in the LLM's input/output"
 
-1. **Update frequently**
-   - After each task
-   - When blockers arise
-   - When plans change
+**Rationale**: Secrets must never be exposed in chat logs, documentation, or version control. Agents should treat all credential files as off-limits to prevent accidental exposure.
 
-2. **Be objective**
-   - Use measurable metrics
-   - Track actual vs estimated
-   - Document deviations
+#### Respect User's Intentional File Edits
 
-3. **Look forward and back**
-   - Document recent work
-   - List next steps
-   - Note blockers
+- ❌ **DO NOT** assume missing content needs to be added back
+- ❌ **DO NOT** revert changes without confirming with user
+- ✅ **DO** read files before editing to see current state
+- ✅ **DO** ask user if unexpected changes were intentional
+- ✅ **DO** confirm before reverting user's manual edits
 
-### Quality
+**Rationale**: If you read a file and it is missing contents or has changed contents (i.e., it does not contain what you expect), assume or confirm with the user if they made intentional updates that you should not revert. Do not assume "The file is missing <xyz>, I need to add it back". The user may have edited files manually with intention.
 
-1. **Include verification steps**
-   - Every task has checklist
-   - Objective criteria
-   - Automated where possible
+#### Respect User Commands to Re-Execute
 
-2. **Document patterns**
-   - Capture reusable solutions
-   - Include anti-patterns
-   - Provide examples
+- ❌ **DO NOT** ignore commands like "re-read", "rerun", or "execute again"
+- ❌ **DO NOT** assume re-execution requests are mistakes or redundant
+- ✅ **DO** execute the command again when asked, even if you just did it
+- ✅ **DO** re-read files when asked, even if you recently read them
+- ✅ **DO** assume the user has good reason for asking to repeat an action
 
-3. **Review and refine**
-   - Update docs as understanding improves
-   - Fix errors immediately
-   - Keep docs accurate
+**Examples**: "Run `@git.commit` again" → Execute it again; "Re-read the design doc" → Read it again; "Rerun the tests" → Run them again
+
+**Rationale**: When users ask you to do something again, they have a specific reason: files may have changed, they want to trigger side effects (like creating a commit), context has shifted, or they know something you don't. Always respect these requests and execute them with intention.
+
+### Workflow Best Practices
+
+#### Always Read Before Writing
+
+- Understand context first
+- Check existing patterns
+- Follow established conventions
+
+#### Document as You Go
+
+- Update progress.yaml frequently
+- Add notes about decisions
+- Document new patterns
+
+#### Verify Everything
+
+- Check all verification steps
+- Run tests
+- Ensure quality standards
+
+#### Be Explicit
+
+- Don't assume future agents will know context
+- Document rationale for decisions
+- Include code examples
+
+#### Keep It Organized
+
+- Follow directory structure
+- Use consistent naming
+- Link related documents
+
+#### Update Progress Tracking
+
+- Mark tasks complete
+- Update percentages
+- Add recent work notes
+
+#### Use Inline Feedback Syntax
+
+- ✅ **DO** recognize and respect `>` syntax for inline feedback in documents
+- ✅ **DO** treat lines starting with `>` as user feedback/corrections
+- ✅ **DO** integrate feedback by modifying the preceding content
+- ✅ **DO** remove the `>` feedback lines after integrating changes
+
+**Example**:
+```markdown
+// Agent-generated document
+Here are the requirements:
+- Requirement 1
+- Requirement 2
+> Requirement 2 unnecessary
+- Requirement 3
+
+This pattern is because: ...
+> Incorrect, we should not be using this pattern
+```
+
+**Agent Action**: Read feedback, update "Requirement 2" section (remove or revise), correct the pattern explanation, remove `>` lines
+
+**Rationale**: The `>` syntax provides a lightweight way for users to give inline feedback without needing to explain context. Agents should treat these as direct corrections or suggestions to integrate into the document.
+
+#### Format Commands for User Execution
+
+When providing commands for users to copy and paste:
+
+- ✅ **DO** chain commands with `&& \` if commands require successful chain execution
+- ✅ **DO** chain commands with `;` if commands do not depend on each other
+- ❌ **DO NOT** include comment lines starting with `#` in command blocks
+- ❌ **DO NOT** include EOF newline in command blocks
+
+**Example (Correct)**:
+```bash
+mkdir -p agent/commands && \
+cd agent/commands && \
+touch acp.init.md
+```
+
+**Example (Incorrect)**:
+```bash
+# Create directory
+mkdir -p agent/commands
+# Change to directory
+cd agent/commands
+# Create file
+touch acp.init.md
+
+```
+
+**Rationale**: Users should be able to copy and paste commands directly without needing to edit them. Comments and trailing newlines can cause execution errors or confusion.
+
+### Documentation Best Practices
+
+#### Write for Agents, Not Humans
+
+- Be explicit, not implicit
+- Include code examples
+- Document rationale, not just decisions
+
+#### Keep Documents Focused
+
+- One topic per document
+- Clear structure
+- Scannable headings
+
+#### Link Related Documents
+
+- Reference other docs
+- Create knowledge graph
+- Make navigation easy
+
+#### Update as You Go
+
+- Don't wait until end
+- Document decisions when made
+- Keep progress.yaml current
+
+### Organization Best Practices
+
+#### Follow Naming Conventions
+
+- `{feature}-design.md` for designs
+- `milestone-{N}-{name}.md` for milestones
+- `task-{N}-{name}.md` for tasks
+- `{pattern-name}.md` for patterns
+
+#### Use Consistent Structure
+
+- Same sections in similar documents
+- Standard YAML format
+- Predictable organization
+
+#### Keep It DRY
+
+- Don't duplicate information
+- Link to canonical source
+- Update in one place
+
+### Progress Tracking Best Practices
+
+#### Update Frequently
+
+- After each task
+- When blockers arise
+- When plans change
+
+#### Be Objective
+
+- Use measurable metrics
+- Track actual vs estimated
+- Document deviations
+
+#### Look Forward and Back
+
+- Document recent work
+- List next steps
+- Note blockers
+
+### Quality Best Practices
+
+#### Include Verification Steps
+
+- Every task has checklist
+- Objective criteria
+- Automated where possible
+
+#### Document Patterns
+
+- Capture reusable solutions
+- Include anti-patterns
+- Provide examples
+
+#### Review and Refine
+
+- Update docs as understanding improves
+- Fix errors immediately
+- Keep docs accurate
 
 ---
 

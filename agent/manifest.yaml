@@ -1,7 +1,164 @@
-# ACP Package Manifest
-# Tracks installed packages and their versions
-
 packages:
+  mcp-auth-server-base:
+    source: https://github.com/prmichaelsen/acp-mcp-auth-server-base.git
+    package_version: 1.1.0
+    commit: 9d518175d361408d94f297d1f51bb3a2aa8fe745
+    installed_at: 2026-02-26T03:09:52Z
+    updated_at: 2026-02-26T03:09:52Z
+    files:
+      patterns:
+        - name: mcp-auth-server-base.token-resolver.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:09:52Z
+          modified: false
+          checksum: sha256:098e1099a1c99d2e4071c13339f2511995b051323324059398e119c661b282ef
+        - name: mcp-auth-server-base.testing-auth-providers.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:09:58Z
+          modified: false
+          checksum: sha256:a64ea0df90d493aaccc6f543bcab76430f54e45f4ca17cf02d32fa106ecd8eb6
+        - name: mcp-auth-server-base.static-server.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:10:04Z
+          modified: false
+          checksum: sha256:5b86c060d1fef0040471bbdc4425123b97ec97ad3090c176dcd85fa109ef1a50
+        - name: mcp-auth-server-base.server-wrapping.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:10:10Z
+          modified: false
+          checksum: sha256:0a5433ef962f643aaea558910ebdf91706aa82655971b60bc80040ae384b3ee5
+        - name: mcp-auth-server-base.secrets-management.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:10:17Z
+          modified: false
+          checksum: sha256:ef0615cbae32d551b012a0cf1ee719bcacf8be13b43dea9c8bf9c167afee49c4
+        - name: mcp-auth-server-base.logging.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:10:24Z
+          modified: false
+          checksum: sha256:dd93fe9ab52154f13c542f9e22075f77b238bd494a80f6a5248ff7b83736c2c1
+        - name: mcp-auth-server-base.jest-configuration.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:10:32Z
+          modified: false
+          checksum: sha256:d2865435bedbd7a02a42ec38ce54aed0b7ad5a1849b6414c6b36402d0373d403
+        - name: mcp-auth-server-base.health-check.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:10:40Z
+          modified: false
+          checksum: sha256:ba70d4e24c8a3ee9c3fac959078464a4543f617e658aaf9292549161d1ca231c
+        - name: mcp-auth-server-base.error-handling.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:10:48Z
+          modified: false
+          checksum: sha256:d767a30bd26b76c27b3e63e4aa5ebe1a4f85ae468836e920c068a39a88edd781
+        - name: mcp-auth-server-base.environment-configuration.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:10:56Z
+          modified: false
+          checksum: sha256:24912d4b536164b6bea76dee6498a6a983efd56e31a167f5d75d9ff1ba564695
+        - name: mcp-auth-server-base.docker-multistage.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:11:05Z
+          modified: false
+          checksum: sha256:69392441a9662df27f15c308ebf82fc51d5fd89eeb3387c3ec4c42d4fce2a734
+        - name: mcp-auth-server-base.cors-configuration.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:11:14Z
+          modified: false
+          checksum: sha256:1cc2b116e90ed5fc262b745d1a24563fefe7c4ac10645ad7a484c8dd81a59324
+        - name: mcp-auth-server-base.cloud-run-deployment.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:11:24Z
+          modified: false
+          checksum: sha256:023f0c4464fe637166f15eebe4dd698f6da6868950999c7ff3a0f67183f29ae1
+        - name: mcp-auth-server-base.cloud-build.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:11:34Z
+          modified: false
+          checksum: sha256:088c411ad4ffffce689079eaccef971874354e0db5fa980c1002d58aec480b95
+        - name: mcp-auth-server-base.auth-provider-oauth.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:11:44Z
+          modified: false
+          checksum: sha256:471baf82ccd93cd5ac90977973c703e9e01c97428c2c4264fd2502fe811cf31f
+        - name: mcp-auth-server-base.auth-provider-jwt.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:11:54Z
+          modified: false
+          checksum: sha256:b41c26913025eaa5519574aae85d5bf88c7957c516fdfbeb86d593c4a6744708
+        - name: mcp-auth-server-base.auth-provider-env.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:12:05Z
+          modified: false
+          checksum: sha256:64e985dc2f7fdb7ff8f8a6bb782d586b6d76be6bc8c2cdca64d37af65b42c41e
+        - name: mcp-auth-server-base.auth-provider-apikey.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:12:16Z
+          modified: false
+          checksum: sha256:8b4e0a6cb88c3333e07606ba068493d3acd6bb66b4ae0c8d18dee2051f196f21
+      commands:
+        - name: mcp-auth-server-base.validate.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:12:28Z
+          modified: false
+          checksum: sha256:73a3b5b8ad646a6f71cc02975e952bf1321c0983881af135d764323bf00c706a
+        - name: mcp-auth-server-base.setup-secrets.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:12:39Z
+          modified: false
+          checksum: sha256:114779d1d61a661f9fa3a41dd1af026113d4c03eb4e8e998af89490930b2e1cd
+        - name: mcp-auth-server-base.mcp-auth-version-update.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:12:52Z
+          modified: false
+          checksum: sha256:b9d0743fd22571b429238b5a03939468b12a6e097c363ee151fb73120aedc964
+        - name: mcp-auth-server-base.mcp-auth-version-check.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:13:04Z
+          modified: false
+          checksum: sha256:6899afd2132358b15f25f182c65e7669a7b5d39c0142bf03b63e4fdc6098ff1c
+        - name: mcp-auth-server-base.logs.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:13:17Z
+          modified: false
+          checksum: sha256:36211aab147420e4812c69b4779ddd200455cf1b042ebdc7bb7a0b3ade65be5b
+        - name: mcp-auth-server-base.init.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:13:30Z
+          modified: false
+          checksum: sha256:e79a2cace6c69e22eba6b235b961ac57e4d66e7a6751457619c3b505650f977f
+        - name: mcp-auth-server-base.generate-dockerfile.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:13:44Z
+          modified: false
+          checksum: sha256:617367d6adf6344b9f6d67d89cbb82eabca424297782be5d2f3304291ba8939d
+        - name: mcp-auth-server-base.generate-cloudbuild.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:13:58Z
+          modified: false
+          checksum: sha256:11fbef44378c2421594a2adf145c22d66888d707a6644b2be4b49128f79f7280
+        - name: mcp-auth-server-base.deploy.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:14:12Z
+          modified: false
+          checksum: sha256:0d2b8a0ce66e704386a9ea2a026e2dd34eb7cfb48b0c29349005e1ecf2c23361
+        - name: mcp-auth-server-base.add-auth-provider.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:14:27Z
+          modified: false
+          checksum: sha256:7bb3c3d7d761ef8d30030d3c09a1c72ec2bec67104714242bcd976434e2b205f
+        - name: git.init.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:14:42Z
+          modified: false
+          checksum: sha256:b7942de5258edcf3cc1786a8ef0a609ceb3da9d362251ace7655e71df65b6b69
+        - name: git.commit.md
+          version: 0.0.0
+          installed_at: 2026-02-26T03:14:57Z
+          modified: false
+          checksum: sha256:70a9f9bf77e0e36bd696d33c14aa6594013d7f55ea1fae1c92a3d0c4072e8ff5
+      designs: []
   acp-core:
     source: https://github.com/prmichaelsen/agent-context-protocol.git
     package_version: 4.1.1
@@ -48,6 +205,5 @@ packages:
       designs:
         - name: design.template.md
         - name: requirements.template.md
-
 manifest_version: 1.0.0
-last_updated: 2026-02-26T03:06:15Z
+last_updated: 2026-02-26T03:09:52Z

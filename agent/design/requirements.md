@@ -1,294 +1,666 @@
-# Brave Search MCP Wrapper - Requirements
+# mcp-auth-server-base Package - Requirements
 
-**Project Name**: Brave Search MCP Wrapper
-**Created**: 2026-02-13
-**Status**: Active
+**Concept**: ACP package for bootstrapping MCP servers wrapped with @prmichaelsen/mcp-auth
+**Created**: 2026-02-21
+**Status**: Design Specification
+**Version**: 1.0.0
 
 ---
 
 ## Overview
 
-A multi-tenant wrapper for the Brave Search MCP server that enables Platform JWT authentication and per-user Brave API key management. This wrapper allows multiple users to access Brave Search functionality through a single deployed service, with each user's requests authenticated via JWT tokens and routed through their individual Brave API keys.
-
----
+The **mcp-auth-server-base** package provides patterns, commands, templates, and configuration files to bootstrap MCP servers that use [@prmichaelsen/mcp-auth](https://github.com/prmichaelsen/mcp-auth) for authentication and multi-tenancy. This package is designed to be generic and reusable across different MCP server implementations, supporting multiple authentication schemes and deployment patterns.
 
 ## Problem Statement
 
-The existing [`@brave/brave-search-mcp-server`](https://github.com/brave/brave-search-mcp-server) package requires each user to run their own local instance with their own API key. This creates several challenges:
+Developers building MCP servers with mcp-auth face several challenges:
 
-1. **Deployment Complexity**: Each user must install and configure the server locally
-2. **No Multi-Tenancy**: Cannot serve multiple users from a single deployment
-3. **No Authentication**: No built-in user authentication or authorization
-4. **Management Overhead**: Users must manage their own API keys and server instances
-5. **No Centralized Control**: Cannot enforce rate limits, logging, or monitoring across users
+1. **Boilerplate Setup**: Repetitive configuration of build tools, TypeScript, Docker, and deployment
+2. **Authentication Patterns**: Understanding the different auth provider schemes and when to use each
+3. **Server Types**: Choosing between static, static_with_credentials, and dynamic server patterns
+4. **Deployment Complexity**: Setting up Cloud Build, Cloud Run, and secrets management
+5. **Best Practices**: Following established patterns from reference implementations
+6. **Testing**: Configuring Jest with proper test patterns for MCP servers
 
----
+## Solution
 
-## Goals and Objectives
+This ACP package provides:
 
-### Primary Goals
-1. **Multi-Tenant Support**: Enable a single server deployment to serve multiple users
-2. **Platform JWT Authentication**: Integrate with platform JWT-based authentication system
-3. **Per-User API Keys**: Each user's requests use their own Brave API key
-4. **Zero Modification**: Wrap existing `@brave/brave-search-mcp-server` without modifying it
-5. **Cloud Deployment**: Deploy to Google Cloud Run for scalability
-
-### Secondary Goals
-1. **Rate Limiting**: Implement per-user rate limiting
-2. **Audit Logging**: Track all operations with user attribution
-3. **Monitoring**: Provide visibility into usage patterns and errors
-4. **CORS Support**: Enable browser-based clients to connect
+- **Guided Initialization**: Interactive `@mcp-auth-server-base.init` command that walks users through setup
+- **Complete Templates**: Working configuration files (tsconfig.json, Dockerfile, cloudbuild.yaml, jest.config.js)
+- **Source Templates**: Base TypeScript files with placeholders for user customization
+- **Patterns**: Documented patterns for all common scenarios
+- **Commands**: Automation for deployment, secrets management, and maintenance
+- **Reference Integration**: Patterns extracted from production implementations
 
 ---
 
-## Functional Requirements
+## Core Requirements
 
-### Core Features
+### 1. Package Structure
 
-1. **JWT Authentication**
-   - Validate Platform JWT tokens on every request
-   - Extract userId from JWT claims
-   - Verify token signature, issuer, and audience
-   - Cache authentication results for performance
+**Type**: ACP Package
 
-2. **API Key Resolution**
-   - Query platform API to retrieve user's Brave API key
-   - Cache API keys to reduce platform API calls
-   - Handle missing or invalid API keys gracefully
-   - Support key rotation without downtime
+**Installation Methods**:
+- **Bootstrap**: `curl -fsSL https://github.com/prmichaelsen/acp-mcp-auth-server-base/raw/main/scripts/bootstrap.sh | bash`
+  - Installs ACP if not present
+  - Installs this package
+  - Runs initialization
+- **Existing Project**: `@acp.package-install https://github.com/prmichaelsen/acp-mcp-auth-server-base`
 
-3. **Server Factory Pattern**
-   - Create isolated server instances per user
-   - Pass user's API key to Brave Search server
-   - No shared state between user instances
-   - Proper cleanup of inactive instances
+**Package Contents** (`package.yaml` `include` section):
+- Configuration files: `tsconfig.json`, `jest.config.js`, `.dockerignore`, `.env.example`
+- Docker files: `Dockerfile.development`, `Dockerfile.production`
+- Cloud Build: `cloudbuild.yaml` (with placeholders)
+- Source templates: `src/index.ts.template`, `src/auth/provider.ts.template`
+- Scripts: `scripts/upload-secrets.ts`, `scripts/test-auth.ts`
+- Patterns: All pattern files in `agent/patterns/`
+- Commands: All command files in `agent/commands/`
+- Designs: All design files in `agent/designs/`
 
-4. **MCP Protocol Support**
-   - Support SSE (Server-Sent Events) transport
-   - Handle all MCP protocol messages correctly
-   - Maintain compatibility with MCP clients
-   - Proper error handling and responses
+**Target Users**:
+- Developers who will extend the base code provided
+- Users familiar with TypeScript and Node.js
+- Users deploying to Google Cloud Platform (Cloud Run)
 
-### Additional Features
+---
 
-1. **Rate Limiting**
-   - Per-user request limits (100 requests/hour)
-   - Configurable limits via environment variables
-   - Clear error messages when limits exceeded
+### 2. Server Types
 
-2. **CORS Configuration**
-   - Configurable allowed origins
-   - Support for platform domain
-   - Proper preflight handling
+The package supports three server patterns:
 
-3. **Health Checks**
-   - `/health` endpoint for monitoring
-   - Readiness and liveness probes
-   - Service status reporting
+#### 2.1 Static Server
+- **Description**: No token resolver, only JWT validation (or other auth provider)
+- **Use Case**: Server doesn't need per-user credentials
+- **Example**: Public data server, read-only server
+- **Credentials**: None required
+
+#### 2.2 Static with Credentials
+- **Description**: Server requires credentials, but same credentials for all users
+- **Use Case**: Server needs API keys that are shared across all users
+- **Example**: Brave Search API (BRAVE_API_KEY shared by all users)
+- **Credentials**: Static credentials from platform's integration provider endpoint
+
+#### 2.3 Dynamic Server
+- **Description**: Server requires per-user access tokens
+- **Use Case**: Server accesses user-specific resources
+- **Example**: GitHub MCP server (each user's GitHub token), Firebase MCP server
+- **Credentials**: Dynamic `access_token` per user via tokenResolver
+
+---
+
+### 3. Authentication Providers
+
+**Supported Providers** (from @prmichaelsen/mcp-auth):
+- JWT Provider (most common)
+- OAuth Provider
+- API Key Provider
+- Environment Variable Provider
+
+**Package Approach**:
+- Document all providers generically
+- Provide patterns for each
+- Let `@mcp-auth-server-base.init` guide selection
+- Reference official mcp-auth documentation for details
+
+**Platform Integration**:
+- Generic patterns applicable to any multi-tenant platform
+- No agentbase.me-specific code (though patterns informed by it)
+- Support for both `direct-oauth` and `mcp-auth` schemes
+- Patterns for credential fetching from external platforms
+
+---
+
+### 4. Build System
+
+**Standard**: esbuild (no alternatives supported)
+
+**Configuration**:
+- `bundle: false` - Preserve module structure (following mcp-auth pattern)
+- ES modules (`"type": "module"` in package.json)
+- Export pattern defined in package.json
+- Two scripts: `esbuild.build.js`, `esbuild.watch.js`
+
+**TypeScript**:
+- `moduleResolution: "bundler"`
+- Module name mappers (path aliases)
+- Target: ES2022
+- Strict mode enabled
+- Declaration files generated
+
+**Package Scripts**:
+```json
+{
+  "build": "node esbuild.build.js",
+  "watch": "node esbuild.watch.js",
+  "dev": "tsx watch src/index.ts",
+  "start": "node dist/index.js",
+  "test": "jest",
+  "type-check": "tsc --noEmit"
+}
+```
+
+---
+
+### 5. Testing Infrastructure
+
+**Framework**: Jest (no alternatives)
+
+**Configuration**:
+- Colocated tests (`.spec.ts` suffix)
+- Full test coverage for testable files
+- Some files with placeholders may not be testable until after init
+
+**Test Types**:
+- Unit tests for auth providers
+- Integration tests for server wrapping
+- Mock tests for external dependencies
+
+**jest.config.js** (included in package):
+```javascript
+export default {
+  preset: 'ts-jest/presets/default-esm',
+  testEnvironment: 'node',
+  extensionsToTreatAsEsm: ['.ts'],
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1'
+  },
+  testMatch: ['**/*.spec.ts'],
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.spec.ts']
+};
+```
+
+---
+
+### 6. Deployment Configuration
+
+#### 6.1 Docker
+
+**Files Included**:
+- `Dockerfile.development` - Development build
+- `Dockerfile.production` - Multi-stage production build
+- `.dockerignore` - Exclude unnecessary files
+
+**Standard Pattern**: Multi-stage builds
+- Stage 1: Builder (install all deps, compile TypeScript)
+- Stage 2: Production (production deps only, copy dist/)
+
+**Base Image**: `node:20-alpine`
+
+**Health Check**: 
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "fetch('http://localhost:8080/mcp/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
+```
+
+#### 6.2 Cloud Build
+
+**File**: `cloudbuild.yaml` (with placeholders)
+
+**Steps**:
+1. Build Docker image
+2. Push to Container Registry (with SHA and latest tags)
+3. Deploy to Cloud Run
+
+**Cloud Run Configuration**:
+- Platform: managed
+- Region: us-central1
+- Allow unauthenticated: true
+- Min instances: 0
+- Max instances: 10
+- Memory: 512Mi
+- CPU: 1
+- Timeout: 60s
+
+**Secrets Management**:
+- Use Google Cloud Secret Manager
+- Prefix secrets with service name (e.g., `myservice-platform-token`)
+- Update secrets via `--update-secrets` flag
+- Pattern provided for managing secrets
+
+#### 6.3 CI/CD
+
+**Supported**: Google Cloud Build only
+
+**Not Supported**: GitHub Actions, GitLab CI (users can add if needed)
+
+---
+
+### 7. Project Structure
+
+**Directory Layout** (informed by reference projects):
+```
+project-root/
+├── src/
+│   ├── index.ts              # Main entry point
+│   ├── auth/
+│   │   └── provider.ts       # Auth provider implementation
+│   ├── config/
+│   │   └── environment.ts    # Environment configuration
+│   └── types/
+│       └── index.ts          # Type definitions
+├── scripts/
+│   ├── upload-secrets.ts     # Upload secrets to GCP
+│   └── test-auth.ts          # Generate and validate test tokens
+├── dist/                     # Build output (gitignored)
+├── node_modules/             # Dependencies (gitignored)
+├── .env.example              # Example environment variables
+├── .env                      # Local env (gitignored)
+├── .env.development          # Dev env (gitignored)
+├── .env.*.local              # Local overrides (gitignored)
+├── .dockerignore
+├── Dockerfile.development
+├── Dockerfile.production
+├── cloudbuild.yaml
+├── tsconfig.json
+├── jest.config.js
+├── esbuild.build.js
+├── esbuild.watch.js
+├── package.json
+├── package-lock.json
+└── README.md
+```
+
+**Organization**: Type-based (auth/, config/, types/) not feature-based
+
+---
+
+### 8. Configuration Management
+
+**Environment Variables**:
+- `.env` - Base configuration (gitignored)
+- `.env.development` - Development overrides (gitignored)
+- `.env.*.local` - Local overrides (gitignored)
+- `.env.example` - Template (committed)
+
+**Security**:
+- ❌ **NO** `.env.production` - Security anti-pattern
+- Production credentials only in Cloud Secret Manager
+- Never commit credentials to git
+
+**Validation**: None (considered bloat)
+
+**Example `.env.example`**:
+```bash
+# Server Configuration
+PORT=8080
+NODE_ENV=development
+
+# Platform Integration
+PLATFORM_URL=https://your-platform.com
+PLATFORM_SERVICE_TOKEN=your-service-token
+
+# CORS
+CORS_ORIGIN=https://your-platform.com
+
+# MCP Server Specific
+# Add your server-specific environment variables here
+```
+
+---
+
+### 9. Dependencies
+
+#### 9.1 Core Dependencies
+
+**Required**:
+- `@prmichaelsen/mcp-auth`: Specific version (pinned per package version)
+- `@modelcontextprotocol/sdk`: `^1.0.0` (constrain major version)
+- `typescript`: Latest
+- `esbuild`: `^0.24.0` (constrain major version)
+
+**Optional** (based on auth provider choice):
+- `jsonwebtoken`: For JWT provider
+- `express`: For SSE transport
+- `cors`: For CORS support
+
+#### 9.2 Dev Dependencies
+
+- `tsx`: For running TypeScript scripts
+- `jest`: For testing
+- `ts-jest`: Jest TypeScript support
+- `@types/node`: Node.js type definitions
+- `@types/jsonwebtoken`: JWT type definitions (if using JWT)
+
+---
+
+### 10. Commands
+
+The package provides the following commands:
+
+#### 10.1 Core Commands
+
+**`@mcp-auth-server-base.init`**
+- **Purpose**: Guided workflow to initialize MCP auth server
+- **Interactive**: Yes (prompts for choices)
+- **Actions**:
+  - Select server type (static, static_with_credentials, dynamic)
+  - Select auth provider (JWT, OAuth, API Key, Env)
+  - Generate configuration files
+  - Install dependencies
+  - Create source files from templates
+  - Initialize git repository
+  - Set up project structure
+
+**`@mcp-auth-server-base.validate`**
+- **Purpose**: Validate project configuration
+- **Checks**:
+  - All required files present
+  - Dependencies installed
+  - Configuration valid
+  - TypeScript compiles
+  - Tests pass
+
+#### 10.2 Deployment Commands
+
+**`@mcp-auth-server-base.deploy`**
+- **Purpose**: Deploy to Cloud Run
+- **Actions**:
+  - Build Docker image
+  - Push to Container Registry
+  - Deploy to Cloud Run
+  - Verify deployment
+
+**`@mcp-auth-server-base.setup-secrets`**
+- **Purpose**: Help set up Cloud secrets
+- **Interactive**: Yes
+- **Actions**:
+  - List required secrets
+  - Guide user through creating secrets
+  - Optionally run upload-secrets.ts script
+
+**`@mcp-auth-server-base.logs`**
+- **Purpose**: Fetch Cloud Run logs (read-only)
+- **Actions**:
+  - Fetch recent logs from Cloud Run
+  - Filter by severity
+  - Display last N entries
+  - Note: Streaming is a gcloud beta feature, not supported in stable
+
+#### 10.3 Generation Commands
+
+**`@mcp-auth-server-base.generate-dockerfile`**
+- **Purpose**: Generate Dockerfile from template
+- **Options**: development, production, both
+
+**`@mcp-auth-server-base.generate-cloudbuild`**
+- **Purpose**: Generate cloudbuild.yaml from template
+- **Prompts**: Service name, region, secrets
+
+**`@mcp-auth-server-base.add-auth-provider`**
+- **Purpose**: Add additional auth provider
+- **Actions**:
+  - Generate provider file
+  - Update dependencies
+  - Update configuration
+
+#### 10.4 Maintenance Commands
+
+**`@mcp-auth-server-base.mcp-auth-version-check`**
+- **Purpose**: Check for mcp-auth updates
+- **Actions**:
+  - Compare current version with latest
+  - Show changelog
+  - Check for breaking changes
+
+**`@mcp-auth-server-base.mcp-auth-version-update`**
+- **Purpose**: Update mcp-auth version
+- **Actions**:
+  - Update package.json
+  - Run npm install
+  - Show migration guide if breaking changes
+  - Update code if needed
+
+#### 10.5 Development Commands
+
+**`@mcp-auth-server-base.tool-create`** (potential)
+- **Purpose**: Generate MCP tool boilerplate
+- **Actions**:
+  - Create tool handler
+  - Add to server
+  - Generate tests
+
+---
+
+### 11. Patterns
+
+The package includes the following patterns:
+
+#### 11.1 Core Patterns
+
+**Server Wrapping Pattern**
+- How to use `wrapServer` from mcp-auth
+- Configuration options
+- Transport setup (SSE, stdio)
+- Middleware configuration
+
+**Auth Provider Pattern**
+- Implementing custom auth providers
+- JWT provider setup
+- OAuth flow
+- API key validation
+- Environment variable provider
+
+**Token Resolver Pattern**
+- When to use token resolver
+- Implementing tokenResolver function
+- Fetching credentials from platform
+- Caching strategies
+
+**Static Server Pattern**
+- No tokenResolver implementation
+- Auth-only validation
+- Use cases and examples
+
+#### 11.2 Operational Patterns
+
+**Multi-Tenant Data Isolation**
+- Per-user data separation
+- Using userId from auth
+- Storage patterns
+- Security considerations
+
+**Error Handling Pattern**
+- Error types
+- Error responses
+- Logging errors
+- User-friendly messages
+
+**Logging Pattern**
+- Structured logging
+- Log levels
+- Request/response logging
+- Performance logging
+
+**Health Check Pattern**
+- Health check endpoint (`/mcp/health`)
+- Readiness checks
+- Liveness checks
+- Monitoring integration
+
+#### 11.3 Configuration Patterns
+
+**CORS Configuration**
+- Setting CORS origin
+- Handling multiple origins
+- Preflight requests
+- Security considerations
+
+**Environment Configuration**
+- Environment variable patterns
+- Configuration validation
+- Defaults and overrides
+- Secret management
+
+#### 11.4 Testing Patterns
+
+**Testing Pattern**
+- Unit testing auth providers
+- Mocking external dependencies
+- Integration testing servers
+- Test coverage strategies
+
+#### 11.5 Deployment Patterns
+
+**Deployment Pattern**
+- Docker best practices
+- Multi-stage builds
+- Cloud Run configuration
+- Secrets management
+- CI/CD workflow
+
+---
+
+### 12. Design Documents
+
+The package includes design documents for:
+
+**Overall Architecture**
+- System components
+- Data flow
+- Integration points
+- Scalability considerations
+
+**Security Considerations**
+- Authentication security
+- Secret management
+- CORS policies
+- Input validation
+- Rate limiting (future)
+
+**Performance Optimization** (if patterns identified)
+- Caching strategies
+- Connection pooling
+- Response optimization
+
+---
+
+### 13. Scripts
+
+**TypeScript Scripts** (included in package):
+
+**`scripts/upload-secrets.ts`**
+- Upload secrets to Google Cloud Secret Manager
+- Reads from .env file
+- Creates or updates secrets
+- Follows naming convention (service-name-secret-name)
+
+**`scripts/test-auth.ts`**
+- Generate test JWT tokens
+- Validate tokens locally
+- Test auth provider
+- Debug authentication issues
+
+---
+
+### 14. Reference Projects
+
+**Extraction Sources** (for patterns, not direct references):
+- [@prmichaelsen/mcp-auth](https://github.com/prmichaelsen/mcp-auth) - Core library
+- [@prmichaelsen/remember-mcp-server](https://github.com/prmichaelsen/remember-mcp-server) - Static server example
+- [@prmichaelsen/task-mcp-server](https://github.com/prmichaelsen/task-mcp-server) - Dynamic server example
+
+**Usage in Package**:
+- Extract common patterns
+- Reference GitHub homepages only (not specific files/docs)
+- Keep patterns generic and reusable
+- No dependencies on reference projects
 
 ---
 
 ## Non-Functional Requirements
 
 ### Performance
-- JWT validation < 10ms (cached)
-- API key resolution < 50ms (cached)
-- Server instance creation < 100ms
-- Support 100+ concurrent users
-- Cache hit rate > 90% for auth and tokens
-
-### Security
-- All JWT tokens validated with shared secret
-- API keys never logged or exposed
-- Complete isolation between user instances
-- HTTPS only in production
-- Secrets stored in Google Secret Manager
-- No API keys in environment variables or code
-
-### Scalability
-- Horizontal scaling via Cloud Run
-- Stateless design for easy scaling
-- Auto-scaling based on load
-- Support 1000+ requests/minute
+- Server startup < 5 seconds
+- Auth validation < 100ms (cached)
+- Health check response < 50ms
 
 ### Reliability
-- 99.9% uptime target
-- Graceful degradation when platform API unavailable
-- Automatic retry with exponential backoff
-- Proper error handling and logging
+- Graceful shutdown on SIGTERM/SIGINT
+- Error recovery
 - Health checks for monitoring
 
----
+### Security
+- No credentials in source code
+- Secrets in Secret Manager only
+- HTTPS in production
+- CORS properly configured
+- Input validation
 
-## Technical Requirements
-
-### Technology Stack
-- **Language**: TypeScript 5.x
-- **Runtime**: Node.js 18+
-- **Protocol**: Model Context Protocol (MCP)
-- **Base Package**: `@brave/brave-search-mcp-server` v2.0.72+
-- **Auth Framework**: `@prmichaelsen/mcp-auth` v7.0.0+
-- **Platform**: Google Cloud Run
-- **Container**: Docker
-
-### Dependencies
-- `@modelcontextprotocol/sdk`: MCP protocol implementation
-- `@brave/brave-search-mcp-server`: Underlying Brave Search server
-- `@prmichaelsen/mcp-auth`: Multi-tenant authentication framework
-- `jsonwebtoken`: JWT validation
-
-### Integrations
-- **Platform API**: User authentication and API key retrieval
-- **Brave Search API**: Search functionality via user API keys
-- **Google Cloud Run**: Deployment and hosting
-- **Google Secret Manager**: Secure secret storage
-
----
-
-## User Stories
-
-### As a Platform User
-1. I want to use Brave Search through the platform so that I don't need to run my own server
-2. I want my searches to use my own API key so that I control my usage and billing
-3. I want my data isolated from other users so that my privacy is protected
-4. I want fast responses so that I can work efficiently
-
-### As a Platform Administrator
-1. I want to deploy one server for all users so that I minimize infrastructure costs
-2. I want to monitor usage patterns so that I can optimize performance
-3. I want to enforce rate limits so that I prevent abuse
-4. I want audit logs so that I can track usage and troubleshoot issues
-
-### As a Developer
-1. I want clear error messages so that I can debug issues quickly
-2. I want the wrapper to be maintainable so that I can update it easily
-3. I want the base package to remain unmodified so that I can upgrade it independently
-4. I want comprehensive documentation so that I can understand the architecture
-
----
-
-## Constraints
-
-### Technical Constraints
-- Must use existing `@brave/brave-search-mcp-server` package without modification
-- Must integrate with existing platform JWT authentication
-- Must deploy to Google Cloud Run
-- Must use SSE transport (stdio not suitable for remote deployment)
-- Platform API must be available for API key resolution
-
-### Business Constraints
-- Must launch within 2 weeks
-- Must support existing platform users
-- Must comply with Brave API terms of service
-- Must handle API key rotation gracefully
-
-### Resource Constraints
-- Single developer for implementation
-- Limited budget for cloud infrastructure
-- Must use existing platform infrastructure where possible
+### Scalability
+- Stateless server design
+- Horizontal scaling via Cloud Run
+- Auto-scaling 0-10 instances
 
 ---
 
 ## Success Criteria
 
-### MVP Success Criteria
-- [ ] Users can authenticate with Platform JWT tokens
-- [ ] User API keys are retrieved from platform API
-- [ ] Brave Search tools work correctly for authenticated users
-- [ ] Multiple users can use the service simultaneously
-- [ ] Deployed to Cloud Run and accessible via HTTPS
-- [ ] Basic monitoring and logging in place
-
-### Full Release Success Criteria
-- [ ] All core and additional features implemented
-- [ ] Rate limiting enforced per user
-- [ ] Comprehensive error handling
-- [ ] Security audit passed
-- [ ] 10+ active users with positive feedback
-- [ ] Documentation complete (README, deployment guide)
-- [ ] Monitoring dashboard configured
+- [ ] Package installs successfully via bootstrap.sh
+- [ ] Package installs into existing ACP projects
+- [ ] `@mcp-auth-server-base.init` creates working project
+- [ ] Generated project compiles without errors
+- [ ] Tests run and pass
+- [ ] Docker builds successfully
+- [ ] Deploys to Cloud Run successfully
+- [ ] Health check endpoint responds
+- [ ] Authentication works correctly
+- [ ] All commands function as expected
+- [ ] Documentation is clear and complete
 
 ---
 
 ## Out of Scope
 
-1. **Custom Search Features**: Only features provided by base package
-2. **User Management**: Handled by platform, not this wrapper
-3. **API Key Management UI**: Users manage keys through platform
-4. **Advanced Analytics**: Basic logging only, no complex analytics
-5. **Multiple Search Providers**: Brave Search only
-6. **On-Premise Deployment**: Cloud Run only for MVP
+- ❌ Support for non-esbuild build tools
+- ❌ Support for non-Jest test frameworks
+- ❌ Support for non-GCP deployment platforms
+- ❌ Rate limiting implementation (future enhancement)
+- ❌ Web UI for configuration
+- ❌ Automatic migration of existing projects
+- ❌ Support for non-TypeScript languages
+- ❌ Scalability patterns (not yet designed)
 
 ---
 
-## Assumptions
+## Dependencies
 
-1. Platform API is reliable and available
-2. Users have valid Brave API keys configured in platform
-3. Platform JWT tokens are properly signed and valid
-4. Google Cloud Run will scale to meet demand
-5. Brave Search API remains stable and available
-6. Users understand they need their own Brave API keys
+**External**:
+- Google Cloud Platform account (for deployment)
+- Node.js 20+
+- npm or compatible package manager
 
----
+**NPM Packages**: See section 9
 
-## Risks
-
-| Risk | Impact | Probability | Mitigation Strategy |
-|------|--------|-------------|---------------------|
-| Platform API downtime | High | Low | Cache API keys aggressively, implement fallback |
-| Brave API rate limits | Medium | Medium | Enforce per-user limits, clear error messages |
-| JWT token compromise | High | Low | Regular secret rotation, monitoring for abuse |
-| Cloud Run costs escalate | Medium | Low | Implement rate limiting, monitor usage |
-| Base package breaking changes | Medium | Low | Pin version, test upgrades thoroughly |
+**Reference Projects**: See section 14
 
 ---
 
-## Timeline
+## Constraints
 
-### Phase 1: Foundation (Days 1-3)
-- Project setup and structure
-- Authentication providers implementation
-- Basic wrapper functionality
-
-### Phase 2: Integration (Days 4-7)
-- Platform API integration
-- Server factory implementation
-- Testing with real users
-
-### Phase 3: Deployment (Days 8-10)
-- Docker containerization
-- Cloud Run deployment
-- Monitoring setup
-
-### Phase 4: Polish (Days 11-14)
-- Documentation
-- Bug fixes
-- Performance optimization
+1. **Build System**: esbuild only
+2. **Test Framework**: Jest only
+3. **Deployment**: GCP Cloud Run only
+4. **Language**: TypeScript only
+5. **Module System**: ES modules only
+6. **Node Version**: 20+
 
 ---
 
-## Stakeholders
+## Future Enhancements
 
-| Role | Name/Team | Responsibilities |
-|------|-----------|------------------|
-| Product Owner | Platform Team | Define requirements, prioritize features |
-| Lead Developer | Agent | Architecture, implementation, deployment |
-| Platform Users | End Users | Provide feedback, report issues |
-| Platform Admin | Platform Team | Monitor service, manage infrastructure |
-
----
-
-## References
-
-- [Brave Search MCP Server](https://github.com/brave/brave-search-mcp-server): Base package
-- [mcp-auth Framework](https://github.com/prmichaelsen/mcp-auth): Authentication framework
-- [Instagram MCP Wrapper](https://github.com/prmichaelsen/agentbase-mcp-server): Reference implementation
-- [Model Context Protocol](https://modelcontextprotocol.io): MCP specification
-- [Google Cloud Run](https://cloud.google.com/run): Deployment platform
+- Rate limiting pattern and implementation
+- Scalability patterns
+- Additional deployment platforms
+- Migration tools for existing projects
+- More auth provider examples
+- Performance monitoring integration
+- Automated testing in CI/CD
 
 ---
 
-**Status**: Active - Ready for implementation
-**Last Updated**: 2026-02-13
-**Next Review**: After MVP completion
+**Status**: Design Specification
+**Next Action**: Create milestones and begin implementation
+**Related Documents**:
+- [Clarifications](../clarifications/clarification-1-package-scope-and-content.md)
+- [Requirements Draft](requirements.draft.md)
